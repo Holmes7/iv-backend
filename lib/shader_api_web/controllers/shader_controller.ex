@@ -25,25 +25,41 @@ Your response MUST be a valid JSON object with the following structure and no ot
 
 """
     prompt = """ 
-Generate GLSL shaders for a ShaderMaterial in Three.js.
+You are a GLSL code generator for WebGL (Three.js ShaderMaterial).
+A user will describe a visual effect or object.
+Your job is to:
+1. Infer whether it is a 2D screen-space shader or a 3D object shader.
+2. Choose a simple geometry: plane, box, or sphere.
+3. Generate vertex and fragment shader code.
+4. Use the `iTime` and `iResolution` uniforms.
+5. Do NOT declare built-in uniforms like `modelViewMatrix` or `position`.
+6. Ensure all GLSL function calls match declared signatures.
+7. Avoid calling any function with the wrong number/type of arguments.
+8. We don't have any helper library functions, so implement all the functions you want to use. Do not assume some function will be present
+9. Do not redeclare any GLSL built-in functions, such as refract, dot, normalize, mix, sin, clamp, etc.
+10. If a helper function you want to use is not available in GLSL, then you must define it with a unique name, e.g. customRefract, fnNoise, or myHelperFunc.
 
-The effect should match the following description:
-"#{description}"
+Do NOT redeclare built-in attributes or uniforms when generating GLSL code for ShaderMaterial in Three.js.
 
-Requirements:
-- Output valid vertex and fragment shaders
-- Do NOT redeclare built-in attributes/uniforms:
-  * position (attribute)
-  * modelViewMatrix, projectionMatrix (uniforms)
-- You may define `varying` variables
-- Use uniforms: `uniform float iTime;`, `uniform vec2 iResolution;`
+Avoid declaring:
+- `attribute vec3 position;`
+- `attribute vec2 uv;`
+- `uniform mat4 modelViewMatrix;`
+- `uniform mat4 projectionMatrix;`
 
-Your response MUST be a valid JSON object with the following structure and no other text:
+These are provided automatically by Three.js.
+
+Return a JSON object with this structure:
+
 {
-  \"vertex_shader\": \"<Your GLSL vertex shader code here>\",
-  \"fragment_shader\": \"<Your GLSL fragment shader code here>\"
+  "mode": "2d" | "3d",
+  "geometry": "plane" | "box" | "sphere",
+  "vertex_shader": "VERTEX_SHADER_HERE",
+  "fragment_shader": "FRAGMENT_SHADER_HERE"
 }
 
+Description:
+"#{description}"
 """
     gemini_key = Application.fetch_env!(:shader_api, :gemini_api_key)
     
@@ -63,14 +79,17 @@ Your response MUST be a valid JSON object with the following structure and no ot
 
       # Clean and parse the JSON response
       cleaned_response = sanitize_shader_code(raw_response)
+      IO.puts(cleaned_response)
       
       case Jason.decode(cleaned_response) do
-        {:ok, %{"vertex_shader" => vertex_shader, "fragment_shader" => fragment_shader}} ->
+        {:ok, %{"vertex_shader" => vertex_shader, "fragment_shader" => fragment_shader, "mode" => mode, "geometry" => geometry}} ->
           # Validate both shaders contain void main
           if String.contains?(vertex_shader, "void main") and String.contains?(fragment_shader, "void main") do
             {:ok, %{
               vertex_shader: vertex_shader,
               fragment_shader: fragment_shader,
+              mode: mode,
+              geometry: geometry,
               raw_code: format_raw_code(vertex_shader, fragment_shader)
             }}
           else
