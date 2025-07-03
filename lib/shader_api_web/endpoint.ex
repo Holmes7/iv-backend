@@ -20,7 +20,11 @@ defmodule ShaderApiWeb.Endpoint do
   # You should set gzip to true if you are running phx.digest
   # when deploying your static files in production.
 
-  plug CORSPlug, origin: "http://localhost:5173"
+  plug CORSPlug, 
+    origin: [
+      "http://localhost:5173",
+      "https://iv-frontend.netlify.app"
+    ]
   plug Plug.Static,
     at: "/",
     from: :shader_api,
